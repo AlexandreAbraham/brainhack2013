@@ -1,14 +1,16 @@
 import numpy as np
 from scipy.sparse import coo_matrix
 from sklearn.base import BaseEstimator
+import scipy as sp
 
 
 class PearsonCorrelation(BaseEstimator):
     """Pearson correlation estimator
     """
 
-    def __init__(self, assume_centered=False):
+    def __init__(self, assume_centered=False, spatial=False):
         self.assume_centered = assume_centered
+        self.spatial = spatial
 
     def fit(self, X, y=None, connectivity=None):
         """ Compute Pearson correlation coefficient
@@ -34,7 +36,11 @@ class PearsonCorrelation(BaseEstimator):
             rows, cols = connectivity.nonzero()
             values = np.zeros(rows.shape)
             for i, (r, c) in enumerate(zip(rows, cols)):
-                corr = np.corrcoef(X[r], X[c])
+                if self.spatial:
+                    corr = sp.stats.pearsonr(np.dot(X[:, r], X),
+                                             np.dot(X[:, c], X))[0]
+                else:
+                    corr = sp.stats.pearsonr(X[:, r], X[:, c])[0]
                 if not np.isnan(corr):
                     values[i] = corr
             self.covariance_ = coo_matrix((values, (rows, cols)))
