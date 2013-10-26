@@ -13,6 +13,7 @@ def subject_covariance(
         confounds=None,
         ref_memory_level=0,
         memory=Memory(cachedir=None),
+        connectivity=None,
         verbose=0,
         copy=True):
     data, affine = cache(
@@ -26,14 +27,18 @@ def subject_covariance(
             confounds=confounds,
             copy=copy)
     estimator = clone(estimator)
-    estimator.fit(data)
+    if connectivity is not None:
+        estimator.fit(data, connectivity=connectivity)
+    else:
+        estimator.fit(data)
     return estimator.covariance_
 
 
 class MultiCovariance(BaseEstimator):
 
     def __init__(self, estimator, smoothing_fwhm=None, mask=None,
-                 do_cca=True, target_affine=None, target_shape=None,
+                 detrend=None, standardize=None,
+                 target_affine=None, target_shape=None,
                  low_pass=None, high_pass=None, t_r=None,
                  memory=Memory(cachedir=None), memory_level=0,
                  n_jobs=1, verbose=0):
@@ -49,8 +54,10 @@ class MultiCovariance(BaseEstimator):
         self.smoothing_fwhm = smoothing_fwhm
         self.target_affine = target_affine
         self.target_shape = target_shape
+        self.standardize = standardize
+        self.detrend = detrend
 
-    def fit(self, niimgs=None, y=None, confounds=None):
+    def fit(self, niimgs=None, y=None, confounds=None, connectivity=None):
         """Compute the mask and the components
 
         Parameters
@@ -109,7 +116,7 @@ class MultiCovariance(BaseEstimator):
 
         # Now compute the covariances
 
-        self.covariances = Parallel(n_jobs=self.n_jobs, verbose=self.verbose)(
+        self.covariances_ = Parallel(n_jobs=self.n_jobs, verbose=self.verbose)(
             delayed(subject_covariance)(
                 self.estimator,
                 niimg,
@@ -118,6 +125,7 @@ class MultiCovariance(BaseEstimator):
                 memory=self.memory,
                 ref_memory_level=self.memory_level,
                 confounds=confounds,
+                connectivity=connectivity,
                 verbose=self.verbose
             )
             for niimg in niimgs)
